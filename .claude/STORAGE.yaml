@@ -1,0 +1,152 @@
+# MADERA MCP - STORAGE
+# MinIO S3-compatible object storage
+
+---
+
+# CONFIGURATION
+
+env_vars:
+  MINIO_ENDPOINT: "localhost:9000"
+  MINIO_ACCESS_KEY: "minioadmin"
+  MINIO_SECRET_KEY: "minioadmin"
+  MINIO_BUCKET: "leclasseur"
+  MINIO_SECURE: "false (true for HTTPS)"
+
+client_file: "madera/storage/minio_client.py"
+
+---
+
+# MINIO CLIENT
+
+class: "MinioClient"
+methods:
+  download_from_presigned: "(url) → local_path"
+  upload_file: "(local_path, object_name) → presigned_url"
+  generate_presigned_url: "(object_name, expiry) → url"
+  delete_object: "(object_name) → bool"
+
+initialization:
+  code: |
+    from madera.storage.minio_client import MinioClient
+    minio = MinioClient()
+
+---
+
+# PRESIGNED URLS
+
+concept: "Time-limited URLs for direct S3 access without credentials"
+default_expiry: "7 days"
+use_case: "Pass to MCP tools for PDF processing"
+
+generate:
+  code: |
+    url = minio.generate_presigned_url(
+        object_name="documents/file.pdf",
+        expiry_seconds=3600  # 1 hour
+    )
+
+download:
+  code: |
+    # In tool
+    local_path = await self.fetch_file(presigned_url)
+    # local_path is temp file, auto-cleaned
+
+---
+
+# FILE OPERATIONS
+
+download_pattern:
+  location: "BaseTool.fetch_file()"
+  code: |
+    async def fetch_file(self, presigned_url: str) -> str:
+        local_path = await self.minio.download_from_presigned(presigned_url)
+        return local_path
+
+upload_pattern:
+  code: |
+    # After processing
+    new_url = await minio.upload_file(
+        local_path="/tmp/processed.pdf",
+        object_name="processed/output.pdf"
+    )
+
+---
+
+# BUCKET STRUCTURE
+
+recommended:
+  documents/: "Original uploaded documents"
+  processed/: "Processed/modified PDFs"
+  thumbnails/: "Generated thumbnails"
+  temp/: "Temporary files (auto-cleanup)"
+
+naming:
+  pattern: "{category}/{uuid}_{original_name}"
+  example: "documents/abc123_tax_return.pdf"
+
+---
+
+# ERROR HANDLING
+
+connection_retry:
+  file: "madera/storage/minio_client.py"
+  retries: 3
+  delay: "3 seconds"
+  reason: "MinIO may be slow to start in Docker"
+
+url_expired:
+  error: "403 Forbidden"
+  fix: "Generate fresh presigned URL"
+  max_age: "7 days default"
+
+bucket_not_found:
+  error: "NoSuchBucket"
+  fix: "Create bucket or check MINIO_BUCKET env var"
+
+---
+
+# DOCKER SETUP
+
+service: "minio"
+ports: "9000 (API), 9001 (Console)"
+volumes: "minio_data:/data"
+healthcheck: "curl -f http://localhost:9000/minio/health/live"
+
+console_url: "http://localhost:9001"
+default_creds: "minioadmin / minioadmin"
+
+---
+
+# INTEGRATION WITH TOOLS
+
+tool_pattern:
+  code: |
+    class MyTool(BaseTool):
+        async def _execute(self, presigned_url: str) -> ToolResult:
+            # 1. Download file
+            local_path = await self.fetch_file(presigned_url)
+
+            # 2. Process locally
+            result = process_pdf(local_path)
+
+            # 3. Optional: Upload result
+            # output_url = await self.minio.upload_file(output_path, "processed/result.pdf")
+
+            return ToolResult(success=True, data={"result": result})
+
+no_upload_needed:
+  note: "Most tools just process and return data"
+  examples: ["count_pages", "extract_text", "validate_*", "calculate_*"]
+
+upload_needed:
+  note: "Tools that create new files"
+  examples: ["split_pdf", "merge_pdfs", "rotate_page", "compress_pdf"]
+
+---
+
+# METADATA
+
+purpose: "Storage reference"
+update: "On storage changes"
+
+# END

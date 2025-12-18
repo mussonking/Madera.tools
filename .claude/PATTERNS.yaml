@@ -1,0 +1,196 @@
+# MADERA MCP - CODE PATTERNS
+# Common patterns used throughout the codebase
+
+---
+
+# TOOL IMPLEMENTATION PATTERN
+
+base_tool_pattern:
+  inherit: "BaseTool"
+  implement: "_execute() async method"
+  return: "ToolResult with success/data/confidence"
+  example: |
+    class MyTool(BaseTool):
+        async def _execute(self, **kwargs) -> ToolResult:
+            return ToolResult(success=True, data={...}, confidence=0.95)
+
+registration_pattern:
+  decorator: "@mcp_server.tool()"
+  wrapper: "async function calling tool.execute()"
+  example: |
+    def register(mcp_server):
+        tool = MyTool()
+        @mcp_server.tool()
+        async def my_tool(param: str) -> dict:
+            result = await tool.execute(param=param)
+            return result.model_dump()
+
+---
+
+# MINIO FILE HANDLING
+
+fetch_pattern:
+  method: "self.fetch_file(presigned_url)"
+  returns: "local temp file path"
+  cleanup: "automatic (temp files)"
+  example: |
+    local_path = await self.fetch_file(presigned_url)
+    # Process local_path
+    # No need to cleanup - temp files
+
+presigned_url_validation:
+  check: "URL must be valid presigned MinIO URL"
+  error: "Return ToolResult(success=False, error='Invalid URL')"
+
+---
+
+# ERROR HANDLING PATTERN
+
+graceful_degradation:
+  rule: "Never raise exceptions to client"
+  pattern: |
+    try:
+        # Process
+        return ToolResult(success=True, data=result)
+    except Exception as e:
+        return ToolResult(success=False, error=str(e), confidence=0.0)
+
+logging_pattern:
+  use: "logger.info/warning/error"
+  never: "print() statements"
+  reason: "stdout/stderr breaks MCP stdio"
+
+---
+
+# CONFIDENCE SCORING
+
+confidence_levels:
+  1.0: "Exact/deterministic result (page count, validation)"
+  0.9-0.99: "High confidence (pattern match, OCR good quality)"
+  0.75-0.89: "Medium confidence (heuristic detection)"
+  0.5-0.74: "Low confidence (fuzzy match, poor quality)"
+  below_0.5: "Very low - consider as uncertain"
+
+hints_confidence:
+  pattern: |
+    return ToolResult(
+        success=True,
+        data={"detection": result},
+        confidence=calculated_confidence,
+        hints={"message": "Human-readable summary"}
+    )
+
+---
+
+# PDF PROCESSING PATTERNS
+
+pypdf_pattern:
+  read: |
+    from pypdf import PdfReader
+    reader = PdfReader(local_path)
+    page_count = len(reader.pages)
+
+  write: |
+    from pypdf import PdfWriter
+    writer = PdfWriter()
+    writer.add_page(reader.pages[0])
+    writer.write(output_path)
+
+pdf2image_pattern:
+  convert: |
+    from pdf2image import convert_from_path
+    images = convert_from_path(local_path, dpi=200)
+    # images is list of PIL Images
+
+ocr_pattern:
+  tesseract: |
+    import pytesseract
+    from PIL import Image
+    text = pytesseract.image_to_string(image, lang='fra+eng')
+
+---
+
+# VALIDATION PATTERNS
+
+luhn_algorithm:
+  use_case: "SIN validation"
+  pattern: |
+    def luhn_check(digits: str) -> bool:
+        total = 0
+        for i, d in enumerate(reversed(digits)):
+            n = int(d)
+            if i % 2 == 1:
+                n *= 2
+                if n > 9:
+                    n -= 9
+            total += n
+        return total % 10 == 0
+
+regex_validation:
+  postal_ca: r'^[A-Z]\d[A-Z]\s?\d[A-Z]\d$'
+  postal_us: r'^\d{5}(-\d{4})?$'
+  phone_nanp: r'^\d{10}$'
+  email: r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+---
+
+# ASYNC PATTERNS
+
+async_execution:
+  always: "async def _execute()"
+  await: "All I/O operations"
+  example: |
+    async def _execute(self, presigned_url: str) -> ToolResult:
+        local_path = await self.fetch_file(presigned_url)
+        # Sync processing is OK inside async function
+        result = process_file(local_path)
+        return ToolResult(success=True, data=result)
+
+database_async:
+  pattern: |
+    async with async_session_maker() as session:
+        result = await session.execute(query)
+        await session.commit()
+
+---
+
+# CONFIGURATION PATTERN
+
+pydantic_settings:
+  file: "madera/config.py"
+  pattern: |
+    from pydantic_settings import BaseSettings
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(env_file=".env")
+        MY_SETTING: str = "default"
+
+    settings = Settings()
+
+usage: "from madera.config import settings"
+
+---
+
+# HINTS TOOLS PATTERN
+
+hints_output:
+  purpose: "Human-readable summary for AI"
+  structure: |
+    hints={
+        "key_finding": value,
+        "message": "Human-readable summary"
+    }
+  example: |
+    hints={
+        "blank_pages": [3, 7],
+        "message": "Skip pages [3, 7] (blank)"
+    }
+
+---
+
+# METADATA
+
+purpose: "Code patterns reference"
+update: "On pattern changes"
+
+# END

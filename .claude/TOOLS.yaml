@@ -1,0 +1,374 @@
+# MADERA MCP - TOOLS REFERENCE
+# Complete tool catalog with signatures and return formats
+
+---
+
+# HINTS TOOLS (7 tools)
+# Purpose: Pre-analyze documents to guide AI processing
+
+hints:
+  detect_blank_pages:
+    file: "madera/mcp/tools/hints/blank_page_detector.py"
+    params: {presigned_url: str}
+    returns:
+      blank_pages: "int[] - page numbers"
+      confidence_per_page: "dict{page: confidence}"
+      total_pages: int
+    hints_output: "Skip pages [X, Y, Z] (blank)"
+    use_case: "Save AI tokens by skipping blank pages"
+
+  detect_id_card_sides:
+    file: "madera/mcp/tools/hints/id_card_detector.py"
+    params: {presigned_url: str}
+    returns:
+      id_cards: "[{page, side, card_type, confidence}]"
+      groupings: "[[recto_page, verso_page]]"
+    hints_output: "ID cards detected: page 1 (recto), page 2 (verso)"
+    use_case: "Group recto/verso pairs for ID extraction"
+
+  identify_cra_document_type:
+    file: "madera/mcp/tools/hints/cra_doc_detector.py"
+    params: {presigned_url: str}
+    returns:
+      documents: "[{page, type, issuer, form_number, confidence}]"
+    detected_types: ["notice_of_assessment", "family_allowance", "gst_hst_credit", "statement_of_account", "tax_return", "proof_of_income"]
+    use_case: "Identify CRA documents before AI extraction"
+
+  detect_tax_form_type:
+    file: "madera/mcp/tools/hints/tax_form_detector.py"
+    params: {presigned_url: str}
+    returns:
+      tax_forms: "[{page, form_type, year, confidence, issuer}]"
+    supported_forms: ["T4", "T4A", "T4E", "T5", "T5007", "T1", "T2202", "T3", "RL-1", "RL-2"]
+    use_case: "Classify tax forms by type and year"
+
+  detect_document_boundaries:
+    file: "madera/mcp/tools/hints/document_splitter.py"
+    params: {presigned_url: str}
+    returns:
+      split_points: "int[] - page numbers where new docs start"
+      document_ranges: "[[start, end]] - page ranges per doc"
+      reasons: "dict{page: reason}"
+    detection_methods: ["blank_pages", "page_1_detected", "header_change", "layout_change"]
+    use_case: "Split multi-document PDFs"
+
+  detect_fiscal_year:
+    file: "madera/mcp/tools/hints/fiscal_year_detector.py"
+    params: {presigned_url: str}
+    returns:
+      fiscal_years: "dict{page: {year, confidence}}"
+      most_common_year: int
+    patterns: ["Tax Year 2024", "For the year 2024", "2024 Tax Return", "date ranges"]
+    use_case: "Pre-fill year context for AI"
+
+  assess_image_quality:
+    file: "madera/mcp/tools/hints/quality_assessor.py"
+    params: {presigned_url: str}
+    returns:
+      pages: "{page: {dpi, blur_score, brightness, contrast, skew_angle, quality_score}}"
+      overall_quality: "excellent|good|fair|poor"
+      needs_preprocessing: bool
+      recommendations: "str[]"
+    quality_metrics: {dpi: "min 150, good 300+", blur: "min 100, good 500+", skew: "max 3°"}
+    use_case: "Decide if preprocessing needed before OCR"
+
+---
+
+# PDF TOOLS (5 tools)
+# Purpose: PDF manipulation operations
+
+pdf:
+  count_pages:
+    file: "madera/mcp/tools/pdf/count_pages.py"
+    params: {presigned_url: str}
+    returns: {page_count: int, file_size: int}
+    performance: "~10ms, 100% accurate"
+
+  extract_page:
+    file: "madera/mcp/tools/pdf/extract_page.py"
+    params: {presigned_url: str, page_number: "int (1-indexed)"}
+    returns: {page_number: int, output_path: str, output_size: int}
+
+  split_pdf:
+    file: "madera/mcp/tools/pdf/split_pdf.py"
+    params: {presigned_url: str, page_ranges: "str (e.g., '1-3,5,7-9')"}
+    returns: {parts_created: int, output_files: "[{part, pages, path, page_count}]"}
+
+  merge_pdfs:
+    file: "madera/mcp/tools/pdf/merge_pdfs.py"
+    params: {presigned_urls: "str[] (min 2)"}
+    returns: {files_merged: int, total_pages: int, output_path: str}
+
+  rotate_page:
+    file: "madera/mcp/tools/pdf/rotate_page.py"
+    params: {presigned_url: str, page_number: int, degrees: "90|180|270|-90|-180|-270"}
+    returns: {page_number: int, rotation_degrees: int, output_path: str}
+
+---
+
+# TEXT TOOLS (4 tools)
+# Purpose: Text extraction and search
+
+text:
+  extract_text:
+    file: "madera/mcp/tools/text/extract_text.py"
+    params: {presigned_url: str}
+    returns: {text: str, total_pages: int, character_count: int, word_count: int, has_text: bool}
+    note: "Returns empty for scanned PDFs (use OCR)"
+
+  extract_text_by_page:
+    file: "madera/mcp/tools/text/extract_text_by_page.py"
+    params: {presigned_url: str}
+    returns: {pages: "dict{page: text}", total_pages: int, pages_with_text: int}
+
+  search_text:
+    file: "madera/mcp/tools/text/search_text.py"
+    params: {presigned_url: str, pattern: "regex str", case_sensitive: "bool (default false)"}
+    returns: {total_matches: int, pages_with_matches: int, matches: "[{page, matches: [{matched_text, context, position}]}]"}
+    common_patterns:
+      phone: '\d{3}-\d{3}-\d{4}'
+      email: '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+      postal_ca: '[A-Z]\d[A-Z]\s?\d[A-Z]\d'
+      sin: '\d{3}[ -]?\d{3}[ -]?\d{3}'
+      dollar: '\$\s?[\d,]+\.?\d*'
+
+  extract_tables:
+    file: "madera/mcp/tools/text/extract_tables.py"
+    params: {presigned_url: str}
+    returns: {total_tables: int, tables: "[{page, table_number, row_count, rows: str[]}]"}
+    note: "Basic heuristic detection - for complex tables use Camelot/Tabula"
+
+---
+
+# NORMALIZATION TOOLS (6 tools)
+# Purpose: Data cleaning and standardization
+
+normalization:
+  normalize_address:
+    file: "madera/mcp/tools/normalization/normalize_address.py"
+    params: {raw_address: str}
+    returns: {original: str, normalized: str}
+    transforms: ["remove accents", "uppercase", "abbreviate (Avenue→AVE, North→N)"]
+
+  parse_currency:
+    file: "madera/mcp/tools/normalization/parse_currency.py"
+    params: {amount_string: str, currency: "str (default CAD)"}
+    returns: {original: str, amount: float, currency: str, formatted: str}
+    supported_formats: ["$1,234.56", "1.234,56 €", "1 234,50 $", "($1,234.56)"]
+
+  parse_date:
+    file: "madera/mcp/tools/normalization/parse_date.py"
+    params: {date_string: str}
+    returns: {original: str, iso_format: "YYYY-MM-DD", year: int, month: int, day: int}
+    supported_formats: ["2024-12-16", "12/16/2024", "16/12/2024", "16 décembre 2024"]
+
+  normalize_name:
+    file: "madera/mcp/tools/normalization/normalize_name.py"
+    params: {raw_name: str, remove_accents: "bool (default true)"}
+    returns: {original: str, normalized: str, without_accents: str}
+    handles: ["UPPERCASE", "accents", "Mc/O' prefixes"]
+
+  split_full_name:
+    file: "madera/mcp/tools/normalization/split_full_name.py"
+    params: {full_name: str}
+    returns: {full_name: str, first_name: str, last_name: str, parts_count: int}
+    heuristics: ["1 word = last only", "2 words = first last", "3+ = all except last is first"]
+
+  calculate_address_similarity:
+    file: "madera/mcp/tools/normalization/calculate_address_similarity.py"
+    params: {address1: str, address2: str}
+    returns: {similarity_percent: float, is_match: "bool (>=80%)", is_likely_match: "bool (>=60%)"}
+    use_case: "Detect duplicate addresses"
+
+---
+
+# FINANCIAL TOOLS (5 tools)
+# Purpose: Canadian mortgage calculations
+
+financial:
+  calculate_annual_income:
+    file: "madera/mcp/tools/financial/calculate_annual_income.py"
+    params: {pay_amount: float, pay_period: "weekly|biweekly|semi-monthly|monthly|quarterly|annual"}
+    returns: {annual_income: float, monthly_income: float, weekly_income: float}
+    multipliers: {weekly: 52, biweekly: 26, semi-monthly: 24, monthly: 12, quarterly: 4, annual: 1}
+
+  calculate_gds_tds:
+    file: "madera/mcp/tools/financial/calculate_gds_tds.py"
+    params:
+      required: {annual_income: float, mortgage_payment: float, property_tax: float, heating: float}
+      optional: {condo_fees: "float (default 0)", other_debts: "float (default 0)"}
+    returns: {gds_ratio: float, tds_ratio: float, gds_qualified: bool, tds_qualified: bool, fully_qualified: bool}
+    cmhc_limits: {gds_max: 39, tds_max: 44}
+
+  calculate_ltv:
+    file: "madera/mcp/tools/financial/calculate_ltv.py"
+    params: {loan_amount: float, property_value: float}
+    returns: {ltv_ratio: float, down_payment: float, needs_cmhc_insurance: bool, cmhc_premium: float}
+    cmhc_premiums: {"<=80%": 0, "80-85%": 2.4, "85-90%": 2.8, "90-95%": 3.1, ">95%": 4.0}
+
+  average_t4_income:
+    file: "madera/mcp/tools/financial/average_t4_income.py"
+    params: {t4_amounts: "float[]", years: "int[] (optional)"}
+    returns: {average_income: float, total_income: float, trend: "increasing|decreasing|stable"}
+    use_case: "2-year average for self-employed/commission"
+
+  estimate_monthly_payment:
+    file: "madera/mcp/tools/financial/estimate_monthly_payment.py"
+    params: {principal: float, annual_rate: float, amortization_years: "int (default 25)", payment_frequency: "monthly|biweekly|weekly"}
+    returns: {monthly_payment: float, biweekly_payment: float, total_interest: float}
+    note: "Canadian semi-annual compounding"
+
+---
+
+# VALIDATION TOOLS (5 tools)
+# Purpose: Data validation for Canadian formats
+
+validation:
+  validate_sin:
+    file: "madera/mcp/tools/validation/validate_sin.py"
+    params: {sin: str}
+    returns: {is_valid: bool, formatted_sin: "XXX-XXX-XXX", error: "str|null"}
+    checks: ["9 digits", "not starts with 0 or 8", "Luhn checksum"]
+
+  validate_postal_code:
+    file: "madera/mcp/tools/validation/validate_postal_code.py"
+    params: {postal_code: str, country: "CA|US (optional, auto-detect)"}
+    returns: {is_valid: bool, formatted_postal_code: str, country: str}
+    formats: {CA: "A1A 1A1", US: "12345 or 12345-6789"}
+
+  validate_phone:
+    file: "madera/mcp/tools/validation/validate_phone.py"
+    params: {phone: str, country: "CA|US (default CA)"}
+    returns: {is_valid: bool, formatted_phone: "(XXX) XXX-XXXX"}
+    nanp_rules: ["area code 2-9 first digit", "exchange 2-9 first digit"]
+
+  validate_email:
+    file: "madera/mcp/tools/validation/validate_email.py"
+    params: {email: str}
+    returns: {is_valid: bool, normalized_email: "lowercase", local_part: str, domain: str}
+
+  validate_date_range:
+    file: "madera/mcp/tools/validation/validate_date_range.py"
+    params: {start_date: str, end_date: str, max_days: "int (optional)"}
+    returns: {is_valid: bool, days_difference: int, is_chronological: bool}
+
+---
+
+# ADVANCED TOOLS (8 tools)
+# Purpose: Advanced PDF operations
+
+advanced:
+  generate_thumbnail:
+    file: "madera/mcp/tools/advanced/generate_thumbnail.py"
+    params: {presigned_url: str, page_number: "int (default 1)", size: "int (default 300)"}
+    returns: {thumbnail_base64: str, thumbnail_width: int, thumbnail_height: int}
+
+  detect_bank_statement_type:
+    file: "madera/mcp/tools/advanced/detect_bank_statement_type.py"
+    params: {presigned_url: str}
+    returns: {bank: str, is_bank_statement: bool, confidence: float}
+    detected_banks: ["TD_CANADA_TRUST", "RBC", "SCOTIABANK", "BMO", "CIBC", "NATIONAL_BANK", "DESJARDINS"]
+
+  detect_form_fields:
+    file: "madera/mcp/tools/advanced/detect_form_fields.py"
+    params: {presigned_url: str}
+    returns: {has_form: bool, field_count: int, fields: "[{name, type, value}]"}
+    field_types: ["text", "checkbox", "radio", "combobox", "signature"]
+
+  count_signatures:
+    file: "madera/mcp/tools/advanced/count_signatures.py"
+    params: {presigned_url: str}
+    returns: {signature_count: int, signed_count: int, unsigned_count: int, all_signed: bool}
+
+  extract_urls:
+    file: "madera/mcp/tools/advanced/extract_urls.py"
+    params: {presigned_url: str}
+    returns: {url_count: int, urls: "str[]", urls_from_text: "str[]", urls_from_annotations: "str[]"}
+
+  compress_pdf:
+    file: "madera/mcp/tools/advanced/compress_pdf.py"
+    params: {presigned_url: str, compression_level: "low|medium|high (default medium)"}
+    returns: {original_size: int, compressed_size: int, compression_ratio: float}
+
+  pdf_to_images:
+    file: "madera/mcp/tools/advanced/pdf_to_images.py"
+    params: {presigned_url: str, dpi: "int (default 200)", max_pages: "int (optional)"}
+    returns: {page_count: int, images: "[{page_number, width, height, image_base64}]"}
+
+  images_to_pdf:
+    file: "madera/mcp/tools/advanced/images_to_pdf.py"
+    params: {image_urls: "str[]"}
+    returns: {page_count: int, pdf_size: int}
+
+---
+
+# VISUAL TOOLS (34 tools)
+# Purpose: Browser automation for debugging and testing
+
+visual:
+  core:
+    visual_navigate: "(url, wait_for?) → success"
+    visual_screenshot: "(name?, selector?, full_page?) → base64_image"
+    visual_click: "(selector) → success"
+    visual_fill: "(selector, value) → success"
+    visual_select: "(selector, value) → success"
+    visual_evaluate: "(script) → result"
+    visual_stop: "() → success"
+
+  element_helpers:
+    visual_check_elements: "(selectors[]) → {selector: exists}"
+    visual_get_element: "(selector) → element_info"
+    visual_is_visible: "(selector) → visible"
+    visual_get_text: "(selector) → text"
+    visual_get_attribute: "(selector, attribute) → value"
+    visual_count_elements: "(selector) → count"
+
+  wait_helpers:
+    visual_wait_for: "(selector, state?, timeout?) → success"
+    visual_wait_animations: "(timeout?) → success"
+    visual_wait_full_load: "(timeout?) → success"
+
+  interaction:
+    visual_hover: "(selector) → success"
+    visual_scroll_to: "(selector?, x?, y?) → success"
+    visual_press_key: "(key, selector?) → success"
+
+  viewport:
+    visual_get_viewport: "() → {width, height}"
+    visual_set_viewport: "(width, height) → success"
+    visual_get_url: "() → url"
+    visual_go_back: "() → success"
+    visual_reload: "() → success"
+
+  console_capture:
+    visual_console_start: "() → success"
+    visual_console_get_errors: "(include_warnings?) → errors[]"
+    visual_console_get_all: "(log_type?) → messages[]"
+    visual_console_detect_patterns: "() → patterns[]"
+    visual_console_clear: "() → success"
+    visual_console_search: "(query) → matches[]"
+
+  network_monitor:
+    visual_network_start: "() → success"
+    visual_network_get_failed: "() → failed_requests[]"
+    visual_network_get_all: "(resource_type?, status_filter?) → requests[]"
+    visual_network_get_api_calls: "(api_base?) → api_calls[]"
+    visual_network_export_har: "(filename?) → har_path"
+    visual_network_clear: "() → success"
+    visual_network_search: "(pattern) → matches[]"
+
+  reporting:
+    visual_report_build: "(title, description, include_console?, include_network?, include_screenshot?) → report"
+    visual_report_hypothesis: "() → hypothesis"
+    visual_report_export: "(title, description, format?) → report_content"
+
+---
+
+# METADATA
+
+total_tools: 74
+categories: 8
+purpose: "LLM tool reference - auto-read"
+update: "When tools added/modified"
+
+# END

@@ -1,0 +1,143 @@
+# MADERA MCP - DATABASE
+# PostgreSQL + AsyncPG + SQLAlchemy + Alembic
+
+---
+
+# CONNECTION
+
+async_engine:
+  driver: "asyncpg"
+  url_format: "postgresql+asyncpg://user:pass@host/db"
+  env_var: "DATABASE_URL"
+
+sync_engine:
+  driver: "psycopg2"
+  url_format: "postgresql://user:pass@host/db"
+  env_var: "DATABASE_URL_SYNC"
+  use_case: "Alembic migrations only"
+
+pool_config:
+  pool_size: 10
+  max_overflow: 20
+  env_vars: ["DB_POOL_SIZE", "DB_MAX_OVERFLOW"]
+
+---
+
+# MODELS
+
+tool_execution:
+  table: "tool_executions"
+  purpose: "Log every tool execution for analytics/training"
+  columns:
+    id: "UUID primary key"
+    tool_name: "str - Tool class name"
+    tool_class: "str - Category (hints, pdf, etc.)"
+    success: "bool"
+    confidence: "float nullable"
+    execution_time_ms: "int"
+    inputs: "JSONB - Tool input parameters"
+    outputs: "JSONB - Tool output data"
+    created_at: "timestamp"
+  index: ["tool_name", "created_at"]
+
+training_example:
+  table: "training_examples"
+  purpose: "Human-validated examples for fine-tuning"
+  columns:
+    id: "UUID"
+    tool_execution_id: "FK to tool_executions"
+    validated_output: "JSONB - Corrected output"
+    validation_source: "str - human/ai"
+    created_at: "timestamp"
+
+---
+
+# SESSION MANAGEMENT
+
+async_pattern:
+  code: |
+    from madera.database import async_session_maker
+
+    async with async_session_maker() as session:
+        result = await session.execute(select(Model))
+        await session.commit()
+
+session_maker:
+  file: "madera/database.py"
+  type: "async_sessionmaker[AsyncSession]"
+
+---
+
+# ALEMBIC MIGRATIONS
+
+commands:
+  upgrade: "alembic upgrade head"
+  downgrade: "alembic downgrade -1"
+  revision: "alembic revision --autogenerate -m 'description'"
+  history: "alembic history"
+  current: "alembic current"
+
+files:
+  config: "alembic.ini"
+  env: "alembic/env.py"
+  versions: "alembic/versions/"
+
+env_setup:
+  note: "Uses DATABASE_URL_SYNC (not async)"
+  code: |
+    # alembic/env.py
+    from madera.config import settings
+    config.set_main_option("sqlalchemy.url", settings.DATABASE_URL_SYNC)
+
+---
+
+# LOGGING TOOL EXECUTIONS
+
+enable: "LOG_TOOL_EXECUTIONS=true in .env"
+location: "madera/mcp/tools/base.py:_log_execution()"
+pattern: |
+  async def _log_execution(self, result: ToolResult, inputs: Dict):
+      async with async_session_maker() as session:
+          execution = ToolExecution(
+              tool_name=self.name,
+              tool_class=self.tool_class,
+              success=result.success,
+              confidence=result.confidence,
+              execution_time_ms=result.execution_time_ms,
+              inputs=inputs,
+              outputs=result.data or {}
+          )
+          session.add(execution)
+          await session.commit()
+
+non_blocking: "Logging failure doesn't fail the tool"
+
+---
+
+# QUERIES
+
+get_tool_stats:
+  sql: |
+    SELECT tool_name,
+           COUNT(*) as total,
+           AVG(confidence) as avg_confidence,
+           AVG(execution_time_ms) as avg_time
+    FROM tool_executions
+    GROUP BY tool_name
+    ORDER BY total DESC
+
+get_low_confidence:
+  sql: |
+    SELECT * FROM tool_executions
+    WHERE confidence < 0.75
+    ORDER BY created_at DESC
+    LIMIT 100
+
+---
+
+# METADATA
+
+purpose: "Database reference"
+update: "On schema changes"
+
+# END

@@ -1,0 +1,246 @@
+# MADERA MCP - SERVER ARCHITECTURE
+# FastMCP server implementation details
+
+---
+
+# ARCHITECTURE OVERVIEW
+
+framework:
+  name: "FastMCP"
+  import: "from mcp.server.fastmcp import FastMCP"
+  transport: "stdio"
+  protocol: "MCP (Model Context Protocol)"
+
+lifecycle:
+  1_init: "FastMCP('madera-tools') creates server instance"
+  2_register: "init_mcp_server() → register_all_tools(mcp_server)"
+  3_run: "mcp_server.run() starts stdio event loop"
+
+key_files:
+  server: {path: "madera/mcp/server.py", lines: 53}
+  registry: {path: "madera/mcp/registry.py", lines: 131}
+  base_tool: {path: "madera/mcp/tools/base.py", lines: 127}
+
+---
+
+# SERVER INITIALIZATION
+
+init_sequence:
+  code: |
+    # 1. Create FastMCP instance
+    mcp_server = FastMCP("madera-tools")
+
+    # 2. Initialize and register tools
+    def init_mcp_server():
+        # Suppress stdout during registration (critical for stdio)
+        sys.stdout = open(os.devnull, 'w')
+        try:
+            from madera.mcp.registry import register_all_tools
+            register_all_tools(mcp_server)
+        finally:
+            sys.stdout = sys.__stdout__
+        return mcp_server
+
+    # 3. Run server
+    mcp_server.run()
+
+critical_requirements:
+  - "Suppress stdout during tool registration"
+  - "Use NullHandler for logging"
+  - "Never print() - breaks MCP protocol"
+
+---
+
+# TOOL REGISTRATION
+
+registry_pattern:
+  location: "madera/mcp/registry.py"
+  structure: |
+    all_tools = [
+        ("category_name", [
+            ("module_name", "tool_function_name"),
+            ...
+        ]),
+        ...
+    ]
+
+    for category, tools in all_tools:
+        for module_name, tool_name in tools:
+            module = __import__(f"madera.mcp.tools.{category}.{module_name}")
+            module.register(mcp_server)
+
+tool_registration_function:
+  pattern: |
+    def register(mcp_server):
+        tool_instance = MyTool()
+
+        @mcp_server.tool()
+        async def tool_name(param1: str, param2: int) -> dict:
+            """Tool description for MCP client"""
+            result = await tool_instance.execute(param1=param1, param2=param2)
+            return result.model_dump()
+
+decorator: "@mcp_server.tool()"
+
+---
+
+# BASE TOOL CLASS
+
+base_tool:
+  file: "madera/mcp/tools/base.py"
+  class: "BaseTool"
+  provides:
+    - "self.minio - MinIO client for file operations"
+    - "self.name - Tool name (class name)"
+    - "self.tool_class - Category for logging"
+    - "execute(**kwargs) - Wrapper with timing/error handling"
+    - "_execute(**kwargs) - Override in subclass"
+    - "fetch_file(presigned_url) - Download from MinIO"
+
+tool_result:
+  class: "ToolResult(BaseModel)"
+  fields:
+    success: "bool - Required"
+    data: "Optional[Dict] - Tool output"
+    error: "Optional[str] - Error message if failed"
+    confidence: "Optional[float] - 0.0-1.0"
+    execution_time_ms: "Optional[int] - Auto-filled by execute()"
+    hints: "Optional[Dict] - For HINTS tools only"
+
+---
+
+# ERROR HANDLING
+
+strategy: "Graceful degradation"
+pattern: |
+  async def execute(self, **kwargs) -> ToolResult:
+      try:
+          result = await self._execute(**kwargs)
+          return result
+      except Exception as e:
+          # Never raise - return error in result
+          return ToolResult(
+              success=False,
+              error=str(e),
+              confidence=0.0
+          )
+
+logging:
+  level: "CRITICAL only (NullHandler)"
+  reason: "stderr output breaks MCP stdio protocol"
+  pattern: |
+    logging.basicConfig(
+        level=logging.CRITICAL,
+        handlers=[logging.NullHandler()]
+    )
+
+---
+
+# ADDING NEW TOOLS
+
+steps:
+  1: "Create file: madera/mcp/tools/{category}/{tool_name}.py"
+  2: "Implement tool class inheriting BaseTool"
+  3: "Add register(mcp_server) function"
+  4: "Add entry to registry.py"
+  5: "Test: python -m madera.mcp.server"
+
+template: |
+  from madera.mcp.tools.base import BaseTool, ToolResult
+
+  class MyNewTool(BaseTool):
+      def __init__(self):
+          super().__init__()
+          self.tool_class = "my_category"
+
+      async def _execute(self, presigned_url: str, option: str = "default") -> ToolResult:
+          # 1. Fetch file if needed
+          local_path = await self.fetch_file(presigned_url)
+
+          # 2. Process
+          result_data = {"processed": True}
+
+          # 3. Return result
+          return ToolResult(
+              success=True,
+              data=result_data,
+              confidence=0.95,
+              hints={"message": "Processed successfully"}
+          )
+
+  def register(mcp_server):
+      tool = MyNewTool()
+
+      @mcp_server.tool()
+      async def my_new_tool(presigned_url: str, option: str = "default") -> dict:
+          """
+          Description shown to MCP clients.
+
+          Args:
+              presigned_url: MinIO presigned URL
+              option: Optional parameter
+
+          Returns:
+              Result dict with success, data, confidence
+          """
+          result = await tool.execute(presigned_url=presigned_url, option=option)
+          return result.model_dump()
+
+registry_entry: |
+  # In registry.py, add to appropriate category:
+  my_category_tools = [
+      ("my_new_tool", "my_new_tool"),  # (module_name, function_name)
+  ]
+
+---
+
+# TOOL CATEGORIES
+
+categories:
+  hints: {purpose: "Document pre-analysis", count: 7}
+  pdf: {purpose: "PDF manipulation", count: 5}
+  text: {purpose: "Text extraction", count: 4}
+  normalization: {purpose: "Data cleaning", count: 6}
+  financial: {purpose: "Mortgage calculations", count: 5}
+  validation: {purpose: "Data validation", count: 5}
+  advanced: {purpose: "Advanced PDF ops", count: 8}
+  visual: {purpose: "Browser automation", count: 34}
+
+---
+
+# RUNNING THE SERVER
+
+development:
+  command: "python -m madera.mcp.server"
+  mode: "stdio"
+  debug: "Set DEBUG=true in .env"
+
+docker:
+  command: "docker compose up -d"
+  service: "mcp-server"
+
+testing:
+  unit: "pytest tests/test_mcp_server.py"
+  tools: "pytest tests/test_hints_tools.py"
+
+claude_code_config:
+  location: "~/.claude/claude_desktop_config.json"
+  example: |
+    {
+      "mcpServers": {
+        "madera": {
+          "command": "python",
+          "args": ["-m", "madera.mcp.server"],
+          "cwd": "/path/to/madera-mcp"
+        }
+      }
+    }
+
+---
+
+# METADATA
+
+purpose: "MCP server architecture reference"
+update: "On server changes"
+
+# END

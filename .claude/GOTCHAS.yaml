@@ -1,0 +1,203 @@
+# MADERA MCP - GOTCHAS & COMMON MISTAKES
+# Things that break and how to avoid them
+
+---
+
+# MCP SERVER GOTCHAS
+
+stdout_breaks_mcp:
+  problem: "Any stdout output breaks MCP stdio protocol"
+  symptom: "MCP client fails to connect or receives malformed messages"
+  fix: "Never use print(), suppress stdout during init"
+  file: "madera/mcp/server.py:31-42"
+  code: |
+    # WRONG
+    print("Registering tools...")
+
+    # RIGHT
+    sys.stdout = open(os.devnull, 'w')
+    try:
+        register_all_tools(mcp_server)
+    finally:
+        sys.stdout = sys.__stdout__
+
+logging_to_stderr:
+  problem: "Default logging outputs to stderr, can interfere with MCP"
+  fix: "Use NullHandler for MCP stdio mode"
+  code: |
+    logging.basicConfig(
+        level=logging.CRITICAL,
+        handlers=[logging.NullHandler()]
+    )
+
+---
+
+# TOOL REGISTRATION GOTCHAS
+
+missing_register_function:
+  problem: "Tool module without register(mcp_server) function"
+  symptom: "ImportError or AttributeError during startup"
+  fix: "Every tool module must export register(mcp_server)"
+  pattern: |
+    def register(mcp_server):
+        tool = MyTool()
+        @mcp_server.tool()
+        async def my_tool(...) -> dict:
+            ...
+
+wrong_return_type:
+  problem: "Tool returns ToolResult instead of dict"
+  symptom: "MCP serialization error"
+  fix: "Always call result.model_dump()"
+  code: |
+    # WRONG
+    return await tool.execute(...)
+
+    # RIGHT
+    result = await tool.execute(...)
+    return result.model_dump()
+
+---
+
+# FILE HANDLING GOTCHAS
+
+presigned_url_expired:
+  problem: "MinIO presigned URLs expire (default 7 days)"
+  symptom: "403 Forbidden or Access Denied"
+  fix: "Generate fresh URLs for each operation"
+
+temp_file_cleanup:
+  problem: "Temp files accumulating"
+  note: "BaseTool.fetch_file uses system temp dir - auto cleaned"
+  caution: "Don't manually manage temp files unless necessary"
+
+large_pdf_memory:
+  problem: "Loading entire large PDF in memory"
+  symptom: "MemoryError or slow processing"
+  fix: "Process page by page when possible"
+  code: |
+    # WRONG - loads all pages
+    images = convert_from_path(path, dpi=300)
+
+    # RIGHT - limit pages
+    images = convert_from_path(path, dpi=200, first_page=1, last_page=5)
+
+---
+
+# ASYNC GOTCHAS
+
+sync_in_async:
+  problem: "Blocking sync code in async function"
+  note: "OK for CPU-bound (PDF processing), bad for I/O"
+  fix: "Use await for I/O operations"
+  code: |
+    # OK - CPU bound
+    async def _execute(self):
+        result = process_pdf(path)  # sync but CPU-bound
+        return ToolResult(...)
+
+    # BAD - I/O bound
+    async def _execute(self):
+        data = requests.get(url)  # blocks event loop
+
+    # RIGHT - I/O bound
+    async def _execute(self):
+        async with httpx.AsyncClient() as client:
+            data = await client.get(url)
+
+database_session_leak:
+  problem: "Not closing async database sessions"
+  fix: "Always use context manager"
+  code: |
+    # RIGHT
+    async with async_session_maker() as session:
+        await session.execute(...)
+        await session.commit()
+
+---
+
+# OCR GOTCHAS
+
+tesseract_not_installed:
+  problem: "pytesseract fails with 'tesseract not found'"
+  fix: "Install tesseract-ocr: apt install tesseract-ocr tesseract-ocr-fra"
+  config: "TESSERACT_CMD=/usr/bin/tesseract in .env"
+
+low_dpi_ocr:
+  problem: "Poor OCR quality"
+  cause: "DPI too low for text recognition"
+  fix: "Use minimum 200 DPI, preferably 300 for small text"
+
+language_detection:
+  problem: "French characters mangled"
+  fix: "Use lang='fra+eng' for Canadian documents"
+  code: |
+    text = pytesseract.image_to_string(image, lang='fra+eng')
+
+---
+
+# VALIDATION GOTCHAS
+
+sin_leading_zeros:
+  problem: "SIN starting with 0 treated as octal or stripped"
+  fix: "Always handle SIN as string, not int"
+  code: |
+    # WRONG
+    sin = 012345678  # Python octal!
+
+    # RIGHT
+    sin = "012345678"
+
+postal_code_case:
+  problem: "Canadian postal codes case-sensitive in regex"
+  fix: "Uppercase before validation"
+  code: |
+    postal = postal.upper().replace(" ", "")
+
+phone_country_code:
+  problem: "+1 prefix causing validation failure"
+  fix: "Strip country code before NANP validation"
+  code: |
+    phone = phone.lstrip("+1").replace("-", "").replace(" ", "")
+
+---
+
+# FINANCIAL GOTCHAS
+
+canadian_mortgage_compounding:
+  problem: "Using wrong interest rate formula"
+  note: "Canada uses semi-annual compounding, not monthly"
+  formula: |
+    # Canadian mortgage rate conversion
+    monthly_rate = (1 + annual_rate/2) ** (1/6) - 1
+
+gds_tds_condo_fees:
+  problem: "Including 100% of condo fees in GDS"
+  fix: "CMHC uses 50% of condo fees"
+  code: |
+    housing_costs = mortgage + property_tax + heating + (condo_fees * 0.5)
+
+---
+
+# DOCKER GOTCHAS
+
+minio_startup_race:
+  problem: "App starts before MinIO is ready"
+  symptom: "Connection refused on first requests"
+  fix: "Add retry logic or depends_on with healthcheck"
+  file: "madera/storage/minio_client.py"
+
+postgres_connection_string:
+  problem: "Wrong driver in DATABASE_URL"
+  asyncpg: "postgresql+asyncpg://..."
+  sync: "postgresql://..."
+  note: "Use DATABASE_URL_SYNC for Alembic"
+
+---
+
+# METADATA
+
+purpose: "Common mistakes and fixes"
+update: "When new gotchas discovered"
+
+# END
