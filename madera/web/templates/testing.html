@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+
+{% block title %}Testing TODO - MADERA{% endblock %}
+
+{% block content %}
+<div class="testing-container">
+    <h1>📋 TESTING TODO - 40 Tools</h1>
+    <p class="subtitle">Guide ultra simple pour tester et améliorer les tools MADERA</p>
+
+    <!-- Quick Stats -->
+    <div class="stats-bar">
+        <div class="stat">
+            <span class="stat-number">40</span>
+            <span class="stat-label">Tools Prêts</span>
+        </div>
+        <div class="stat">
+            <span class="stat-number">7</span>
+            <span class="stat-label">Catégories</span>
+        </div>
+        <div class="stat">
+            <span class="stat-number">0</span>
+            <span class="stat-label">Tests Complétés</span>
+        </div>
+    </div>
+
+    <!-- Instructions Rapides -->
+    <div class="instructions-box">
+        <h2>🎯 Comment Tester</h2>
+        <ol>
+            <li>Uploader des documents dans <code>/home/mad/madera-mcp/test-documents/</code></li>
+            <li>Tester via API: <code>POST http://192.168.2.71:8004/api/tools/{tool_name}</code></li>
+            <li>Noter precision, bugs, améliorations dans un fichier</li>
+            <li>Ajuster les tools selon les résultats</li>
+        </ol>
+    </div>
+
+    <!-- Phase 1: HINTS TOOLS -->
+    <div class="phase-section">
+        <h2>🎯 PHASE 1: HINTS TOOLS (7 tools)</h2>
+        <p class="priority-badge urgent">PRIORITÉ URGENTE - Impact direct sur réduction tokens AI</p>
+
+        <div class="tool-test-grid">
+            <div class="tool-test-card">
+                <h3>detect_blank_pages</h3>
+                <div class="test-cases">
+                    <label><input type="checkbox"> PDF avec pages blanches intercalées</label>
+                    <label><input type="checkbox"> PDF scanné avec pages presque vides</label>
+                    <label><input type="checkbox"> PDF avec pages de séparation</label>
+                </div>
+            </div>
+
+            <div class="tool-test-card">
+                <h3>detect_id_card_sides</h3>
+                <div class="test-cases">
+                    <label><input type="checkbox"> Permis de conduire QC (recto + verso)</label>
+                    <label><input type="checkbox"> Carte assurance maladie QC</label>
+                    <label><input type="checkbox"> Passeport canadien</label>
+                </div>
+            </div>
+
+            <div class="tool-test-card">
+                <h3>identify_cra_document_type</h3>
+                <div class="test-cases">
+                    <label><input type="checkbox"> Avis de cotisation CRA (NOA)</label>
+                    <label><input type="checkbox"> Allocations familiales (RC151)</label>
+                    <label><input type="checkbox"> Option C / Proof of income</label>
+                </div>
+            </div>
+
+            <div class="tool-test-card">
+                <h3>detect_tax_form_type</h3>
+                <div class="test-cases">
+                    <label><input type="checkbox"> T4 (plusieurs années)</label>
+                    <label><input type="checkbox"> T5, T4A, T4E</label>
+                    <label><input type="checkbox"> RL-1, RL-2 (Québec)</label>
+                </div>
+            </div>
+
+            <div class="tool-test-card">
+                <h3>detect_document_boundaries</h3>
+                <div class="test-cases">
+                    <label><input type="checkbox"> PDF multi-documents (3-4 docs)</label>
+                    <label><input type="checkbox"> PDF avec pages blanches séparatrices</label>
+                    <label><input type="checkbox"> PDF avec changements header/footer</label>
+                </div>
+            </div>
+
+            <div class="tool-test-card">
+                <h3>detect_fiscal_year</h3>
+                <div class="test-cases">
+                    <label><input type="checkbox"> Documents fiscaux 2022, 2023, 2024</label>
+                    <label><input type="checkbox"> Documents avec années mixtes</label>
+                    <label><input type="checkbox"> Documents sans année claire</label>
+                </div>
+            </div>
+
+            <div class="tool-test-card">
+                <h3>assess_image_quality</h3>
+                <div class="test-cases">
+                    <label><input type="checkbox"> PDF haute qualité (300 DPI)</label>
+                    <label><input type="checkbox"> PDF basse qualité (150 DPI)</label>
+                    <label><input type="checkbox"> PDF flou ou penché</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase 2: CORE TOOLS -->
+    <div class="phase-section">
+        <h2>💼 PHASE 2: CORE TOOLS (15 tools)</h2>
+        <p class="priority-badge medium">PRIORITÉ MOYENNE</p>
+
+        <details open>
+            <summary><strong>PDF Manipulation (5 tools)</strong></summary>
+            <div class="test-cases">
+                <label><input type="checkbox"> count_pages - PDFs 1, 10, 50+ pages</label>
+                <label><input type="checkbox"> extract_page - Extraire page 1, 5, dernière</label>
+                <label><input type="checkbox"> split_pdf - Split "1-3,5,7-9"</label>
+                <label><input type="checkbox"> merge_pdfs - Merger 2-5 PDFs</label>
+                <label><input type="checkbox"> rotate_page - 90°, 180°, 270°</label>
+            </div>
+        </details>
+
+        <details>
+            <summary><strong>Text Extraction (4 tools)</strong></summary>
+            <div class="test-cases">
+                <label><input type="checkbox"> extract_text - PDF natif vs scanné</label>
+                <label><input type="checkbox"> extract_text_by_page - Multi-pages</label>
+                <label><input type="checkbox"> search_text - Téléphone, email, NAS, $</label>
+                <label><input type="checkbox"> extract_tables - Tableaux simples et complexes</label>
+            </div>
+        </details>
+
+        <details>
+            <summary><strong>Data Normalization (6 tools)</strong></summary>
+            <div class="test-cases">
+                <label><input type="checkbox"> normalize_address - Accents, tirets, formats</label>
+                <label><input type="checkbox"> parse_currency - $15,000.50 vs 15 000,50 $</label>
+                <label><input type="checkbox"> parse_date - Formats FR/EN</label>
+                <label><input type="checkbox"> normalize_name - Jean-François, O'Brien</label>
+                <label><input type="checkbox"> split_full_name - 1, 2, 3+ mots</label>
+                <label><input type="checkbox"> calculate_address_similarity - Similarité</label>
+            </div>
+        </details>
+    </div>
+
+    <!-- Phase 3: ADVANCED TOOLS -->
+    <div class="phase-section">
+        <h2>🚀 PHASE 3: ADVANCED TOOLS (18 tools)</h2>
+        <p class="priority-badge medium">PRIORITÉ MOYENNE</p>
+
+        <details>
+            <summary><strong>Financial Calculations (5 tools)</strong></summary>
+            <div class="test-cases">
+                <label><input type="checkbox"> calculate_annual_income - Biweekly $2500 → $65k</label>
+                <label><input type="checkbox"> calculate_gds_tds - Vérifier GDS<39%, TDS<44%</label>
+                <label><input type="checkbox"> calculate_ltv - 90%, 80%, 95% + SCHL</label>
+                <label><input type="checkbox"> average_t4_income - 3 ans + trend</label>
+                <label><input type="checkbox"> estimate_monthly_payment - Formule canadienne</label>
+            </div>
+        </details>
+
+        <details>
+            <summary><strong>Data Validation (5 tools)</strong></summary>
+            <div class="test-cases">
+                <label><input type="checkbox"> validate_sin - Valide/invalide, Luhn</label>
+                <label><input type="checkbox"> validate_postal_code - CA (K1A 0B1) vs US</label>
+                <label><input type="checkbox"> validate_phone - NANP 514-555-1234</label>
+                <label><input type="checkbox"> validate_email - RFC 5322</label>
+                <label><input type="checkbox"> validate_date_range - Chronologie</label>
+            </div>
+        </details>
+
+        <details>
+            <summary><strong>Advanced Processing (8 tools)</strong></summary>
+            <div class="test-cases">
+                <label><input type="checkbox"> generate_thumbnail - 150px, 300px, 600px</label>
+                <label><input type="checkbox"> detect_bank_statement_type - TD, RBC, Desjardins</label>
+                <label><input type="checkbox"> detect_form_fields - Fillable vs non-fillable</label>
+                <label><input type="checkbox"> count_signatures - Remplies vs vides</label>
+                <label><input type="checkbox"> extract_urls - Liens cliquables + texte</label>
+                <label><input type="checkbox"> compress_pdf - High/medium/low</label>
+                <label><input type="checkbox"> pdf_to_images - 150, 200, 300 DPI</label>
+                <label><input type="checkbox"> images_to_pdf - 3 PNGs → 1 PDF</label>
+            </div>
+        </details>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="actions-box">
+        <h2>⚡ Actions Rapides</h2>
+        <div class="action-buttons">
+            <a href="/api/docs" target="_blank" class="btn btn-primary">📖 API Docs</a>
+            <a href="/tools" class="btn btn-secondary">🔧 Liste Tools</a>
+            <button onclick="downloadTestingGuide()" class="btn btn-secondary">📥 Download Guide</button>
+        </div>
+    </div>
+
+    <!-- Métriques à Tracker -->
+    <div class="metrics-box">
+        <h2>📊 Métriques à Noter pour Chaque Test</h2>
+        <ul>
+            <li>✅ <strong>Precision</strong>: % de bonnes détections</li>
+            <li>⏱️ <strong>Speed</strong>: Temps d'exécution moyen</li>
+            <li>🐛 <strong>Bugs</strong>: Erreurs trouvées</li>
+            <li>💡 <strong>Improvements</strong>: Idées d'amélioration</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+.testing-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.subtitle {
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.stats-bar {
+    display: flex;
+    gap: 20px;
+    margin: 30px 0;
+    justify-content: center;
+}
+
+.stat {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 40px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.stat-number {
+    display: block;
+    font-size: 36px;
+    font-weight: bold;
+}
+
+.stat-label {
+    display: block;
+    font-size: 14px;
+    opacity: 0.9;
+    margin-top: 5px;
+}
+
+.instructions-box {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 30px 0;
+    border-left: 4px solid #667eea;
+}
+
+.instructions-box ol {
+    margin: 10px 0 0 0;
+    padding-left: 20px;
+}
+
+.instructions-box code {
+    background: #e9ecef;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.phase-section {
+    background: white;
+    padding: 30px;
+    margin: 30px 0;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.priority-badge {
+    display: inline-block;
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.priority-badge.urgent {
+    background: #ff6b6b;
+    color: white;
+}
+
+.priority-badge.medium {
+    background: #ffa500;
+    color: white;
+}
+
+.tool-test-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.tool-test-card {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.tool-test-card h3 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 16px;
+}
+
+.test-cases {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.test-cases label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.test-cases input[type="checkbox"] {
+    margin-top: 2px;
+    cursor: pointer;
+}
+
+details {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #495057;
+    padding: 5px 0;
+}
+
+details[open] summary {
+    margin-bottom: 15px;
+}
+
+.actions-box {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 30px 0;
+    text-align: center;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    display: inline-block;
+    transition: all 0.3s;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-secondary {
+    background: white;
+    color: #667eea;
+    border: 2px solid #667eea;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+
+.metrics-box {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    padding: 20px;
+    border-radius: 10px;
+    margin: 30px 0;
+}
+
+.metrics-box ul {
+    margin: 10px 0 0 0;
+    padding-left: 20px;
+}
+
+.metrics-box li {
+    margin: 8px 0;
+}
+</style>
+
+<script>
+function downloadTestingGuide() {
+    window.location.href = '/static/TESTING-TODO.md';
+}
+
+// Save checkbox states to localStorage
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+
+    checkboxes.forEach((checkbox, index) => {
+        const savedState = localStorage.getItem(`test_${index}`);
+        if (savedState === 'true') {
+            checkbox.checked = true;
+        }
+
+        checkbox.addEventListener('change', function() {
+            localStorage.setItem(`test_${index}`, this.checked);
+            updateStats();
+        });
+    });
+
+    updateStats();
+});
+
+function updateStats() {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    const completed = Array.from(checkboxes).filter(cb => cb.checked).length;
+    const total = checkboxes.length;
+
+    // Update the stats number
+    const statsNumber = document.querySelector('.stats-bar .stat:last-child .stat-number');
+    if (statsNumber) {
+        statsNumber.textContent = completed;
+    }
+}
+</script>
+{% endblock %}

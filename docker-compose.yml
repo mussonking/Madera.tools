@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  # ==================== MADERA MCP SERVER ====================
+  madera-mcp:
+    build: .
+    image: madera-mcp:latest
+    container_name: madera-mcp
+    restart: unless-stopped
+    command: python -m madera.mcp.server
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./madera:/app/madera
+      - madera-temp:/tmp/madera_mcp
+    env_file:
+      - .env
+    environment:
+      # Override with Docker network hostnames
+      - DATABASE_URL=postgresql+asyncpg://madera_user:madera_pass_1234@postgres-madera:5432/madera_db
+      - DATABASE_URL_SYNC=postgresql://madera_user:madera_pass_1234@postgres-madera:5432/madera_db
+      - REDIS_URL=redis://redis-madera:6379/0
+      - CELERY_BROKER_URL=redis://redis-madera:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-madera:6379/1
+    depends_on:
+      postgres-madera:
+        condition: service_healthy
+      redis-madera:
+        condition: service_healthy
+    networks:
+      - madera_net
+
+  # ==================== WEB UI ====================
+  madera-web:
+    build: .
+    image: madera-mcp:latest
+    container_name: madera-web
+    restart: unless-stopped
+    command: uvicorn madera.web.app:app --host 0.0.0.0 --port 80 --reload
+    ports:
+      - "8004:80"
+    volumes:
+      - ./madera:/app/madera
+      - madera-temp:/tmp/madera_uploads
+    env_file:
+      - .env
+    environment:
+      # Override with Docker network hostnames
+      - DATABASE_URL=postgresql+asyncpg://madera_user:madera_pass_1234@postgres-madera:5432/madera_db
+      - DATABASE_URL_SYNC=postgresql://madera_user:madera_pass_1234@postgres-madera:5432/madera_db
+      - REDIS_URL=redis://redis-madera:6379/0
+      - CELERY_BROKER_URL=redis://redis-madera:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-madera:6379/1
+    depends_on:
+      postgres-madera:
+        condition: service_healthy
+      redis-madera:
+        condition: service_healthy
+    networks:
+      - madera_net
+
+  # ==================== CELERY WORKER ====================
+  madera-celery:
+    build: .
+    image: madera-mcp:latest
+    container_name: madera-celery
+    restart: unless-stopped
+    command: celery -A madera.tasks.celery_app worker -l info -c 4
+    volumes:
+      - ./madera:/app/madera
+      - madera-temp:/tmp/madera_mcp
+    env_file:
+      - .env
+    environment:
+      # Override with Docker network hostnames
+      - DATABASE_URL=postgresql+asyncpg://madera_user:madera_pass_1234@postgres-madera:5432/madera_db
+      - DATABASE_URL_SYNC=postgresql://madera_user:madera_pass_1234@postgres-madera:5432/madera_db
+      - REDIS_URL=redis://redis-madera:6379/0
+      - CELERY_BROKER_URL=redis://redis-madera:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-madera:6379/1
+    depends_on:
+      postgres-madera:
+        condition: service_healthy
+      redis-madera:
+        condition: service_healthy
+    networks:
+      - madera_net
+
+  # ==================== CELERY BEAT (Scheduler) ====================
+  madera-beat:
+    build: .
+    image: madera-mcp:latest
+    container_name: madera-beat
+    restart: unless-stopped
+    command: celery -A madera.tasks.celery_app beat -l info
+    volumes:
+      - ./madera:/app/madera
+    env_file:
+      - .env
+    environment:
+      # Override with Docker network hostnames
+      - REDIS_URL=redis://redis-madera:6379/0
+      - CELERY_BROKER_URL=redis://redis-madera:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis-madera:6379/1
+    depends_on:
+      redis-madera:
+        condition: service_healthy
+    networks:
+      - madera_net
+
+  # ==================== POSTGRESQL ====================
+  postgres-madera:
+    image: postgres:16-alpine
+    container_name: postgres-madera
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: madera_user
+      POSTGRES_PASSWORD: madera_pass_1234
+      POSTGRES_DB: madera_db
+    ports:
+      - "15432:5432"  # High port to avoid conflicts
+    volumes:
+      - postgres-madera-data:/var/lib/postgresql/data
+    networks:
+      - madera_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U madera_user -d madera_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== REDIS ====================
+  redis-madera:
+    image: redis:7-alpine
+    container_name: redis-madera
+    restart: unless-stopped
+    ports:
+      - "6380:6379"  # Different port to not conflict with LeClasseur
+    volumes:
+      - redis-madera-data:/data
+    networks:
+      - madera_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-madera-data:
+  redis-madera-data:
+  madera-temp:
+
+networks:
+  madera_net:
+    driver: bridge

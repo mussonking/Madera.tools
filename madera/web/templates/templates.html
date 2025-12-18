@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Trained Templates - MADERA{% endblock %}
+
+{% block content %}
+<h1>📚 Trained Templates</h1>
+
+<p class="subtitle">Templates learned from training sessions</p>
+
+{% if templates %}
+<div class="templates-table">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tool</th>
+                <th>Document Type</th>
+                <th>Logo/Name</th>
+                <th>Precision</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for template in templates %}
+            <tr>
+                <td>{{ template.id }}</td>
+                <td>{{ template.tool_name }}</td>
+                <td>{{ template.document_type or '-' }}</td>
+                <td>{{ template.logo_name or '-' }}</td>
+                <td>{{ (template.precision_rate * 100)|round(1) if template.precision_rate else '-' }}%</td>
+                <td>{{ template.created_at.strftime('%Y-%m-%d') if template.created_at else '-' }}</td>
+                <td>
+                    <a href="/api/templates/{{ template.id }}" class="btn btn-sm btn-secondary">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No templates yet. Start training to create templates!</p>
+    <a href="/training" class="btn btn-primary">Start Training</a>
+</div>
+{% endif %}
+{% endblock %}

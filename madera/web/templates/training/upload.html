@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}AI Training - Upload{% endblock %}
+
+{% block content %}
+<div class="upload-container">
+    <h1>🤖 MADERA AI Training Assistant</h1>
+    <p class="subtitle">Upload des documents pour entraîner les tools automatiquement</p>
+
+    <!-- Progress Steps -->
+    <div class="steps">
+        <div class="step active">
+            <div class="step-number">1</div>
+            <div class="step-label">Upload</div>
+        </div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-label">AI Analysis</div>
+        </div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-label">Validation</div>
+        </div>
+        <div class="step">
+            <div class="step-number">4</div>
+            <div class="step-label">Save</div>
+        </div>
+    </div>
+
+    <!-- Upload Box -->
+    <div class="upload-box" id="uploadBox">
+        <div class="upload-icon">📤</div>
+        <h2>Drag & Drop PDFs ici</h2>
+        <p>ou cliquez pour sélectionner (max 50 fichiers)</p>
+        <input type="file" id="fileInput" accept=".pdf" multiple style="display: none;">
+        <button class="btn-browse">
+            📁 Parcourir les fichiers
+        </button>
+    </div>
+
+    <!-- Training Mode Selection -->
+    <div class="mode-selection">
+        <h3>Mode de training:</h3>
+        <div class="mode-options">
+            <label class="mode-card">
+                <input type="radio" name="mode" value="logo_detection" checked>
+                <div class="mode-content">
+                    <div class="mode-icon">🏢</div>
+                    <div class="mode-title">Logo Detection</div>
+                    <div class="mode-desc">Détecter logos de banques, CRA, etc.</div>
+                </div>
+            </label>
+
+            <label class="mode-card">
+                <input type="radio" name="mode" value="zone_extraction">
+                <div class="mode-content">
+                    <div class="mode-icon">📍</div>
+                    <div class="mode-title">Zone Extraction</div>
+                    <div class="mode-desc">Identifier zones d'intérêt (dates, montants)</div>
+                </div>
+            </label>
+
+            <label class="mode-card">
+                <input type="radio" name="mode" value="document_classification">
+                <div class="mode-content">
+                    <div class="mode-icon">📋</div>
+                    <div class="mode-title">Document Classification</div>
+                    <div class="mode-desc">Classifier types de documents</div>
+                </div>
+            </label>
+
+            <label class="mode-card">
+                <input type="radio" name="mode" value="quality_assessment">
+                <div class="mode-content">
+                    <div class="mode-icon">⭐</div>
+                    <div class="mode-title">Quality Assessment</div>
+                    <div class="mode-desc">Évaluer qualité des scans</div>
+                </div>
+            </label>
+        </div>
+    </div>
+
+    <!-- Files List -->
+    <div class="files-list" id="filesList" style="display: none;">
+        <h3>Fichiers sélectionnés (<span id="fileCount">0</span>)</h3>
+        <div class="files-grid" id="filesGrid"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions">
+        <button class="btn btn-secondary" onclick="clearFiles()">
+            🗑️ Effacer tout
+        </button>
+        <button class="btn btn-primary" id="startBtn" onclick="startAnalysis()" disabled>
+            ▶️ Start Analysis
+        </button>
+    </div>
+
+    <!-- Analysis Progress (hidden initially) -->
+    <div class="analysis-progress" id="analysisProgress" style="display: none;">
+        <h3>🤖 AI Analysis en cours...</h3>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p class="progress-text" id="progressText">Analysing documents with Gemini...</p>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/upload.js"></script>
+{% endblock %}

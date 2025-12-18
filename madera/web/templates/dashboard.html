@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - MADERA Training{% endblock %}
+
+{% block content %}
+<h1>📊 Dashboard</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>{{ stats.total_executions }}</h3>
+        <p>Total Executions</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>{{ stats.success_rate }}%</h3>
+        <p>Success Rate</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>{{ stats.avg_confidence }}</h3>
+        <p>Avg Confidence</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>{{ stats.avg_execution_time }}ms</h3>
+        <p>Avg Time</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>{{ stats.total_templates }}</h3>
+        <p>Templates</p>
+    </div>
+
+    <div class="stat-card">
+        <h3>{{ stats.pending_queue }}</h3>
+        <p>Pending Queue</p>
+    </div>
+</div>
+
+<div class="actions">
+    <a href="/training" class="btn btn-primary">🚀 Start Training</a>
+    <a href="/tools" class="btn btn-secondary">🔧 View Tools</a>
+    <a href="/templates" class="btn btn-secondary">📚 View Templates</a>
+</div>
+
+<div class="info-section">
+    <h2>🎯 Quick Start</h2>
+    <ol>
+        <li>Click "Start Training" to upload PDFs</li>
+        <li>Select training mode (logo detection or zone extraction)</li>
+        <li>AI analyzes your documents with Gemini Pro</li>
+        <li>Validate results with visual drag-and-drop interface</li>
+        <li>Templates are saved and reused by MCP tools</li>
+    </ol>
+</div>
+{% endblock %}

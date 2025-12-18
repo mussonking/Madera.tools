@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - MADERA Training{% endblock %}
+
+{% block content %}
+<h1>⚙️ Training Configuration</h1>
+
+<div class="settings-tabs-container">
+    <!-- Tabs Navigation -->
+    <div class="tabs-nav">
+        <button class="tab-btn active" data-tab="ai-models">🤖 AI Models</button>
+        <button class="tab-btn" data-tab="logo-detection">🏢 Logo Detection</button>
+        <button class="tab-btn" data-tab="zone-extraction">📍 Zone Extraction</button>
+        <button class="tab-btn" data-tab="doc-classification">📋 Classification</button>
+        <button class="tab-btn" data-tab="quality-assessment">⭐ Quality</button>
+    </div>
+
+    <!-- Tab 1: AI Models -->
+    <div class="tab-content active" id="ai-models">
+        <div class="card">
+            <h3>Current Configuration</h3>
+            <div class="current-config">
+                <p><strong>Provider:</strong> <span class="badge">{{ current_provider }}</span></p>
+                <p><strong>Model:</strong> <code>{{ current_model }}</code></p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Select AI Provider & Model</h3>
+            <form id="settingsForm">
+                <!-- Provider Grid -->
+                <div class="provider-grid">
+                    <label class="provider-card {% if current_provider == 'gemini' %}active{% endif %}" data-provider="gemini">
+                        <input type="radio" name="provider" value="gemini" {% if current_provider == 'gemini' %}checked{% endif %} {% if not api_keys.gemini %}disabled{% endif %}>
+                        <div class="provider-header">
+                            <span class="provider-icon">🔷</span>
+                            <span class="provider-name">Google Gemini</span>
+                        </div>
+                        <span class="api-status {% if api_keys.gemini %}active{% else %}inactive{% endif %}">
+                            {% if api_keys.gemini %}✓ API Key OK{% else %}✗ No API Key{% endif %}
+                        </span>
+                    </label>
+
+                    <label class="provider-card {% if current_provider == 'claude' %}active{% endif %}" data-provider="claude">
+                        <input type="radio" name="provider" value="claude" {% if current_provider == 'claude' %}checked{% endif %} {% if not api_keys.claude %}disabled{% endif %}>
+                        <div class="provider-header">
+                            <span class="provider-icon">🟣</span>
+                            <span class="provider-name">Anthropic Claude</span>
+                        </div>
+                        <span class="api-status {% if api_keys.claude %}active{% else %}inactive{% endif %}">
+                            {% if api_keys.claude %}✓ API Key OK{% else %}✗ No API Key{% endif %}
+                        </span>
+                    </label>
+
+                    <label class="provider-card {% if current_provider == 'openai' %}active{% endif %}" data-provider="openai">
+                        <input type="radio" name="provider" value="openai" {% if current_provider == 'openai' %}checked{% endif %} {% if not api_keys.openai %}disabled{% endif %}>
+                        <div class="provider-header">
+                            <span class="provider-icon">🟢</span>
+                            <span class="provider-name">OpenAI GPT</span>
+                        </div>
+                        <span class="api-status {% if api_keys.openai %}active{% else %}inactive{% endif %}">
+                            {% if api_keys.openai %}✓ API Key OK{% else %}✗ No API Key{% endif %}
+                        </span>
+                    </label>
+                </div>
+
+                <!-- Model Selection -->
+                <div class="model-section">
+                    <h3>Select Model</h3>
+                    {% for provider, models in recommended_models.items() %}
+                    <div class="models-list" data-provider="{{ provider }}" style="display: {% if provider == current_provider %}block{% else %}none{% endif %};">
+                        <label>Recommended Models:</label>
+                        {% for model in models %}
+                        <label class="model-option">
+                            <input type="radio" name="model_preset" value="{{ model.name }}" {% if model.name == current_model %}checked{% endif %}>
+                            <span class="model-name">{{ model.name }}</span>
+                            <span class="model-desc">{{ model.desc }}</span>
+                            {% if model.get('default') %}<span class="badge-small">Recommended</span>{% endif %}
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+
+                    <div class="custom-model">
+                        <label>
+                            <span>Or enter custom model name:</span>
+                            <input type="text" id="customModel" name="model_name" value="{{ current_model }}" placeholder="e.g., gemini-2.0-pro-exp">
+                        </label>
+                        <p class="help-text">💡 Enter the exact model ID from provider docs.</p>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">💾 Save Settings</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tab 2: Logo Detection Config -->
+    <div class="tab-content" id="logo-detection">
+        <div class="card">
+            <h3>🏢 Logo Database</h3>
+            <p class="help-text">Manage logos for logo detection training</p>
+
+            <!-- Add Logo Form -->
+            <div class="add-form">
+                <h4>Add New Logo</h4>
+                <form id="addLogoForm" class="inline-form">
+                    <input type="text" id="logoCode" placeholder="CODE (e.g. TD_CANADA_TRUST)" required>
+                    <input type="text" id="logoDisplay" placeholder="Display Name" required>
+                    <select id="logoCategory" required>
+                        <option value="">Category...</option>
+                        <option value="bank">Bank</option>
+                        <option value="government">Government</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="credit">Credit Bureau</option>
+                    </select>
+                    <button type="submit" class="btn-primary">➕ Add</button>
+                </form>
+            </div>
+
+            <!-- Logos Table -->
+            <div class="data-table-container">
+                <table class="data-table" id="logosTable">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Display Name</th>
+                            <th>Category</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logosTableBody">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>📂 Categories</h3>
+            <p class="help-text">Manage logo categories</p>
+            <div class="add-form">
+                <form id="addCategoryForm" class="inline-form">
+                    <input type="text" id="categoryCode" placeholder="code (lowercase)" required>
+                    <input type="text" id="categoryLabel" placeholder="Display Label" required>
+                    <input type="text" id="categoryIcon" placeholder="Icon (emoji)" required>
+                    <button type="submit" class="btn-primary">➕ Add Category</button>
+                </form>
+            </div>
+
+            <div class="category-list" id="categoryList">
+                <!-- Loaded via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: Zone Extraction Config -->
+    <div class="tab-content" id="zone-extraction">
+        <div class="card">
+            <h3>📍 Zone Types</h3>
+            <p class="help-text">Define zone types for zone extraction training</p>
+
+            <div class="add-form">
+                <form id="addZoneTypeForm" class="inline-form">
+                    <input type="text" placeholder="Type (e.g. date)" required>
+                    <input type="text" placeholder="Label (e.g. Statement Date)" required>
+                    <select required>
+                        <option value="">Data Type...</option>
+                        <option value="text">Text</option>
+                        <option value="number">Number</option>
+                        <option value="date">Date</option>
+                        <option value="currency">Currency</option>
+                    </select>
+                    <button type="submit" class="btn-primary">➕ Add</button>
+                </form>
+            </div>
+
+            <div class="data-table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Label</th>
+                            <th>Data Type</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="zoneTypesTableBody">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 4: Document Classification Config -->
+    <div class="tab-content" id="doc-classification">
+        <div class="card">
+            <h3>📋 Document Types</h3>
+            <p class="help-text">Define document types for classification training</p>
+
+            <div class="add-form">
+                <form id="addDocTypeForm" class="inline-form">
+                    <input type="text" id="docTypeCode" placeholder="code (e.g. bank_statement)" required>
+                    <input type="text" id="docTypeLabel" placeholder="Display Label" required>
+                    <select id="docTypeCategory" required>
+                        <option value="">Category...</option>
+                        <option value="financial">Financial</option>
+                        <option value="tax">Tax</option>
+                        <option value="identity">Identity</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <button type="submit" class="btn-primary">➕ Add</button>
+                </form>
+            </div>
+
+            <div class="data-table-container">
+                <table class="data-table" id="docTypesTable">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Label</th>
+                            <th>Category</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="docTypesTableBody">
+                        <!-- Loaded via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 5: Quality Assessment Config -->
+    <div class="tab-content" id="quality-assessment">
+        <div class="card">
+            <h3>⭐ Quality Criteria</h3>
+            <p class="help-text">Define quality assessment criteria</p>
+
+            <div class="criteria-grid">
+                <div class="criterion-card">
+                    <h4>📐 Resolution</h4>
+                    <label>Min DPI: <input type="number" value="150" min="72"></label>
+                    <label>Recommended DPI: <input type="number" value="300" min="150"></label>
+                </div>
+
+                <div class="criterion-card">
+                    <h4>🔍 Sharpness</h4>
+                    <label>Blur Threshold: <input type="number" value="100" step="10"></label>
+                </div>
+
+                <div class="criterion-card">
+                    <h4>☀️ Brightness</h4>
+                    <label>Min Brightness: <input type="number" value="20" max="255"></label>
+                    <label>Max Brightness: <input type="number" value="235" max="255"></label>
+                </div>
+
+                <div class="criterion-card">
+                    <h4>📏 Skew</h4>
+                    <label>Max Angle: <input type="number" value="5" step="0.5"> degrees</label>
+                </div>
+            </div>
+
+            <button class="btn-primary">💾 Save Quality Settings</button>
+        </div>
+    </div>
+</div>
+
+<!-- Status Message -->
+<div id="statusMessage" class="status-message" style="display: none;"></div>
+
+<style>
+.settings-tabs-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.tabs-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    border-bottom: 2px solid #e9ecef;
+    overflow-x: auto;
+}
+
+.tab-btn {
+    padding: 12px 24px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 16px;
+    white-space: nowrap;
+    transition: all 0.3s;
+}
+
+.tab-btn:hover {
+    background: #f8f9fa;
+}
+
+.tab-btn.active {
+    border-bottom-color: #667eea;
+    color: #667eea;
+    font-weight: 600;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.card {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.add-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.inline-form {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.inline-form input,
+.inline-form select {
+    flex: 1;
+    min-width: 150px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.data-table-container {
+    overflow-x: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table thead {
+    background: #f8f9fa;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.data-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.btn-delete {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.category-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.category-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.criteria-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.criterion-card {
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.criterion-card h4 {
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+
+.criterion-card label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.criterion-card input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 4px;
+}
+
+/* Reuse from original settings */
+.provider-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.provider-card { border: 2px solid #ddd; border-radius: 8px; padding: 16px; cursor: pointer; transition: all 0.2s; }
+.provider-card.active { border-color: #4CAF50; background: #f1f8f4; }
+.provider-card input[type="radio"] { display: none; }
+.provider-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.provider-icon { font-size: 24px; }
+.provider-name { font-weight: 600; font-size: 16px; }
+.api-status { font-size: 13px; padding: 4px 8px; border-radius: 4px; }
+.api-status.active { background: #d4edda; color: #155724; }
+.api-status.inactive { background: #f8d7da; color: #721c24; }
+.model-section { margin-top: 24px; }
+.models-list { margin: 16px 0; }
+.model-option { display: flex; align-items: center; gap: 8px; padding: 12px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 8px; cursor: pointer; }
+.model-option:hover { background: #f8f9fa; }
+.model-name { font-family: monospace; font-weight: 600; }
+.model-desc { color: #666; font-size: 14px; flex: 1; }
+.badge-small { background: #ff9800; color: white; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+.custom-model { margin-top: 24px; }
+.custom-model input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; }
+.help-text { font-size: 13px; color: #666; margin-top: 8px; }
+.form-actions { display: flex; gap: 12px; margin-top: 24px; }
+.btn-primary { padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+.btn-primary:hover { background: #45a049; }
+.current-config { background: #f8f9fa; padding: 16px; border-radius: 4px; }
+.badge { background: #4CAF50; color: white; padding: 4px 12px; border-radius: 4px; font-size: 14px; font-weight: bold; text-transform: uppercase; }
+.status-message { padding: 16px; border-radius: 4px; margin-top: 16px; }
+.status-message.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.status-message.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+</style>
+
+<script src="/static/js/settings-tabbed.js"></script>
+{% endblock %}

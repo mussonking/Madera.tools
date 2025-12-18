@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Validate Results - MADERA Training{% endblock %}
+
+{% block extra_head %}
+<!-- Fabric.js for canvas manipulation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<h1>✅ Validate Training Results</h1>
+
+<div class="validation-interface">
+    <!-- Left Panel: PDF Preview -->
+    <div class="preview-panel">
+        <div class="preview-header">
+            <h3>Document <span id="current-doc">1</span> / <span id="total-docs">{{ total_files }}</span></h3>
+            <p id="doc-filename">document.pdf</p>
+        </div>
+
+        <!-- Canvas for Fabric.js -->
+        <div class="canvas-container">
+            <canvas id="pdf-canvas"></canvas>
+        </div>
+
+        <!-- Navigation -->
+        <div class="preview-nav">
+            <button id="prev-btn" class="btn btn-secondary">⬅️ Previous</button>
+            <button id="skip-btn" class="btn btn-warning">⏭️ Skip</button>
+            <button id="next-btn" class="btn btn-primary">Next ➡️</button>
+        </div>
+    </div>
+
+    <!-- Right Panel: Detection Results -->
+    <div class="results-panel">
+        <h3>🎯 Detected Elements</h3>
+
+        <!-- Logo Detection Results -->
+        <div id="logo-results">
+            <div class="result-item">
+                <h4>🏢 Logo Detection</h4>
+
+                <!-- Editable Logo Info -->
+                <div class="info-editor">
+                    <label>
+                        Logo Name:
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <select id="logo-name" class="info-input" style="flex: 1; margin-bottom: 10px;">
+                                <option value="">Select logo...</option>
+                                <!-- Loaded from API -->
+                            </select>
+                            <button id="add-logo-btn" class="btn-icon" title="Quick add logo">➕</button>
+                        </div>
+                    </label>
+                    <label>
+                        Document Type:
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <select id="doc-type" class="info-input" style="flex: 1; margin-bottom: 10px;">
+                                <option value="">Select type...</option>
+                                <!-- Loaded from API -->
+                            </select>
+                            <button id="add-doctype-btn" class="btn-icon" title="Quick add document type">➕</button>
+                        </div>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; margin: 10px 0;">
+                        <input type="checkbox" id="skip-entity" style="width: auto; cursor: pointer;">
+                        <span style="font-size: 14px;">Skip this entity (non-important/non-recurring)</span>
+                    </label>
+                    <p>Confidence: <span id="confidence">-</span></p>
+                </div>
+
+                <!-- Zone Coordinates (editable) -->
+                <div class="zone-editor">
+                    <h5>Zone Coordinates:</h5>
+                    <div class="zone-inputs">
+                        <label>X: <input type="number" id="zone-x" value="0" class="zone-input"></label>
+                        <label>Y: <input type="number" id="zone-y" value="0" class="zone-input"></label>
+                        <label>W: <input type="number" id="zone-width" value="0" class="zone-input"></label>
+                        <label>H: <input type="number" id="zone-height" value="0" class="zone-input"></label>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="result-actions">
+                    <button class="btn btn-success" id="approve-btn">✅ Approve</button>
+                    <button class="btn btn-danger" id="reject-btn">❌ Reject</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Suggestions -->
+        <div class="suggestions">
+            <h4>💡 AI Suggestions:</h4>
+            <ul id="suggestions-list">
+                <li>Loading...</li>
+            </ul>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions">
+            <h4>📝 Instructions:</h4>
+            <ul>
+                <li>Green box shows detected zone</li>
+                <li>Drag or resize to adjust</li>
+                <li>Edit coordinates manually</li>
+                <li>Click Approve to save</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Progress Indicator -->
+<div class="validation-progress">
+    <div class="progress-bar">
+        <div id="val-progress-fill" class="progress-fill"></div>
+    </div>
+    <p><span id="validated-count">0</span> / {{ total_files }} validated</p>
+</div>
+
+<!-- Quick Add Logo Modal -->
+<div id="quickAddLogoModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>➕ Quick Add Logo</h3>
+            <button class="modal-close" onclick="closeQuickAddLogoModal()">&times;</button>
+        </div>
+        <form id="quickAddLogoForm" class="modal-form">
+            <div class="form-group">
+                <label for="quick-logo-code">Logo Code (e.g. TD_CANADA_TRUST) *</label>
+                <input type="text" id="quick-logo-code" class="info-input" required placeholder="UPPERCASE_WITH_UNDERSCORES">
+            </div>
+            <div class="form-group">
+                <label for="quick-logo-display">Display Name *</label>
+                <input type="text" id="quick-logo-display" class="info-input" required placeholder="TD Canada Trust">
+            </div>
+            <div class="form-group">
+                <label for="quick-logo-category">Category *</label>
+                <select id="quick-logo-category" class="info-input" required>
+                    <option value="">Select category...</option>
+                    <option value="bank">🏦 Bank</option>
+                    <option value="government">🏛️ Government</option>
+                    <option value="insurance">🛡️ Insurance</option>
+                    <option value="credit">📊 Credit Bureau</option>
+                    <!-- Custom categories loaded dynamically -->
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeQuickAddLogoModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Logo</button>
+            </div>
+        </form>
+        <div id="quick-logo-message" class="status-message" style="display: none; margin-top: 10px;"></div>
+    </div>
+</div>
+
+<!-- Quick Add Document Type Modal -->
+<div id="quickAddDoctypeModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>➕ Quick Add Document Type</h3>
+            <button class="modal-close" onclick="closeQuickAddDoctypeModal()">&times;</button>
+        </div>
+        <form id="quickAddDoctypeForm" class="modal-form">
+            <div class="form-group">
+                <label for="quick-doctype-code">Type Code (lowercase_with_underscores) *</label>
+                <input type="text" id="quick-doctype-code" class="info-input" required placeholder="example: paystub">
+            </div>
+            <div class="form-group">
+                <label for="quick-doctype-label">Display Label *</label>
+                <input type="text" id="quick-doctype-label" class="info-input" required placeholder="Pay Stub">
+            </div>
+            <div class="form-group">
+                <label for="quick-doctype-category">Category *</label>
+                <select id="quick-doctype-category" class="info-input" required>
+                    <option value="">Select category...</option>
+                    <option value="financial">💰 Financial</option>
+                    <option value="tax">📋 Tax</option>
+                    <option value="insurance">🛡️ Insurance</option>
+                    <option value="identity">🪪 Identity</option>
+                    <option value="other">📄 Other</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeQuickAddDoctypeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add Type</button>
+            </div>
+        </form>
+        <div id="quick-doctype-message" class="status-message" style="display: none; margin-top: 10px;"></div>
+    </div>
+</div>
+
+<!-- Hidden: Session ID -->
+<input type="hidden" id="session-id" value="{{ session_id }}">
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/validate.js"></script>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}MCP Tools - MADERA{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/tools.css">
+{% endblock %}
+
+{% block content %}
+<div class="tools-header">
+    <h1>MCP Tools</h1>
+    <div class="search-box">
+        <input type="text" id="tool-search" placeholder="Search tools..." />
+    </div>
+</div>
+
+<!-- Stats Summary -->
+<div class="stats-bar">
+    <div class="stat-item">
+        <span class="stat-value" id="total-tools">--</span>
+        <span class="stat-label">Total Tools</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-value" id="pdf-tools">--</span>
+        <span class="stat-label">PDF Processing</span>
+    </div>
+    <div class="stat-item">
+        <span class="stat-value" id="debug-tools">--</span>
+        <span class="stat-label">Debug & Testing</span>
+    </div>
+</div>
+
+<!-- Main Category Tabs -->
+<div class="category-tabs">
+    <button class="category-tab active" data-category="all">
+        <span class="tab-icon">*</span>
+        <span class="tab-name">All Tools</span>
+    </button>
+    <!-- Categories loaded dynamically -->
+</div>
+
+<!-- Subcategory Pills -->
+<div class="subcategory-pills" id="subcategory-pills">
+    <!-- Subcategories loaded dynamically based on selected category -->
+</div>
+
+<!-- Tools Grid -->
+<div class="tools-container">
+    <div class="tools-grid" id="tools-grid">
+        <!-- Tool cards loaded dynamically -->
+        <div class="loading-placeholder">Loading tools...</div>
+    </div>
+</div>
+
+<!-- Tool Detail Modal -->
+<div id="toolModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-title">
+                <span class="modal-icon" id="modal-icon"></span>
+                <h2 id="modal-tool-name">Tool Name</h2>
+            </div>
+            <button class="modal-close" onclick="closeToolModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-section">
+                <h4>Description</h4>
+                <p id="modal-description"></p>
+            </div>
+
+            <div class="modal-section">
+                <h4>Category</h4>
+                <div class="category-badges">
+                    <span class="badge category-badge" id="modal-category"></span>
+                    <span class="badge subcategory-badge" id="modal-subcategory"></span>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <h4>Arguments</h4>
+                <div id="modal-args" class="args-table">
+                    <!-- Arguments loaded dynamically -->
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <h4>Returns</h4>
+                <pre id="modal-returns" class="code-block"></pre>
+            </div>
+
+            <div class="modal-section stats-section">
+                <h4>Statistics</h4>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <span class="stat-number" id="modal-executions">0</span>
+                        <span class="stat-desc">Executions</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-number" id="modal-success-rate">0%</span>
+                        <span class="stat-desc">Success Rate</span>
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-number" id="modal-avg-time">0ms</span>
+                        <span class="stat-desc">Avg Time</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeToolModal()">Close</button>
+            <a href="/api/docs#/default" target="_blank" class="btn btn-primary">API Docs</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/tools.js"></script>
+{% endblock %}

@@ -1,0 +1,736 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - MADERA Training{% endblock %}
+
+{% block content %}
+<h1>⚙️ AI Model Settings</h1>
+
+<div class="settings-container">
+    <!-- Current Configuration -->
+    <div class="card">
+        <h3>Current Configuration</h3>
+        <div class="current-config">
+            <p><strong>Provider:</strong> <span class="badge">{{ current_provider }}</span></p>
+            <p><strong>Model:</strong> <code>{{ current_model }}</code></p>
+        </div>
+    </div>
+
+    <!-- AI Provider Selection -->
+    <div class="card">
+        <h3>Select AI Provider</h3>
+
+        <form id="settingsForm">
+            <div class="provider-grid">
+                <!-- Gemini -->
+                <label class="provider-card {% if current_provider == 'gemini' %}active{% endif %}" data-provider="gemini">
+                    <input type="radio" name="provider" value="gemini"
+                           {% if current_provider == 'gemini' %}checked{% endif %}
+                           {% if not api_keys.gemini %}disabled{% endif %}>
+                    <div class="provider-header">
+                        <span class="provider-icon">🔷</span>
+                        <span class="provider-name">Google Gemini</span>
+                    </div>
+                    <span class="api-status {% if api_keys.gemini %}active{% else %}inactive{% endif %}">
+                        {% if api_keys.gemini %}✓ API Key OK{% else %}✗ No API Key{% endif %}
+                    </span>
+                </label>
+
+                <!-- Claude -->
+                <label class="provider-card {% if current_provider == 'claude' %}active{% endif %}" data-provider="claude">
+                    <input type="radio" name="provider" value="claude"
+                           {% if current_provider == 'claude' %}checked{% endif %}
+                           {% if not api_keys.claude %}disabled{% endif %}>
+                    <div class="provider-header">
+                        <span class="provider-icon">🟣</span>
+                        <span class="provider-name">Anthropic Claude</span>
+                    </div>
+                    <span class="api-status {% if api_keys.claude %}active{% else %}inactive{% endif %}">
+                        {% if api_keys.claude %}✓ API Key OK{% else %}✗ No API Key{% endif %}
+                    </span>
+                </label>
+
+                <!-- OpenAI -->
+                <label class="provider-card {% if current_provider == 'openai' %}active{% endif %}" data-provider="openai">
+                    <input type="radio" name="provider" value="openai"
+                           {% if current_provider == 'openai' %}checked{% endif %}
+                           {% if not api_keys.openai %}disabled{% endif %}>
+                    <div class="provider-header">
+                        <span class="provider-icon">🟢</span>
+                        <span class="provider-name">OpenAI GPT</span>
+                    </div>
+                    <span class="api-status {% if api_keys.openai %}active{% else %}inactive{% endif %}">
+                        {% if api_keys.openai %}✓ API Key OK{% else %}✗ No API Key{% endif %}
+                    </span>
+                </label>
+            </div>
+
+            <!-- Model Selection -->
+            <div class="model-section">
+                <h3>Select Model</h3>
+
+                <!-- Recommended Models (dynamic based on provider) -->
+                <div class="recommended-models">
+                    {% for provider, models in recommended_models.items() %}
+                    <div class="models-list" data-provider="{{ provider }}"
+                         style="display: {% if provider == current_provider %}block{% else %}none{% endif %};">
+                        <label>Recommended Models:</label>
+                        {% for model in models %}
+                        <label class="model-option">
+                            <input type="radio" name="model_preset" value="{{ model.name }}"
+                                   {% if model.name == current_model %}checked{% endif %}>
+                            <span class="model-name">{{ model.name }}</span>
+                            <span class="model-desc">{{ model.desc }}</span>
+                            {% if model.get('default') %}
+                            <span class="badge-small">Recommended</span>
+                            {% endif %}
+                        </label>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Custom Model Input -->
+                <div class="custom-model">
+                    <label>
+                        <span>Or enter custom model name:</span>
+                        <input type="text" id="customModel" name="model_name"
+                               value="{{ current_model }}" placeholder="e.g., gemini-2.0-pro-exp">
+                    </label>
+                    <p class="help-text">
+                        💡 Enter the exact model ID. Check provider docs for available models.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="form-actions">
+                <button type="submit" class="btn-primary">💾 Save Settings</button>
+                <button type="button" class="btn-secondary" onclick="testConnection()">🧪 Test Connection</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Status Message -->
+    <div id="statusMessage" class="status-message" style="display: none;"></div>
+
+    <!-- Logo Database Management -->
+    <div class="card">
+        <h3>🏢 Logo Database Management</h3>
+        <p class="help-text">Manage the predefined logos used in training validation dropdown.</p>
+
+        <!-- Add New Logo Form -->
+        <div class="add-logo-form">
+            <h4>Add New Logo</h4>
+            <form id="addLogoForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Code (uppercase, underscores):</label>
+                        <input type="text" id="logoCode" name="code" required placeholder="TD_CANADA_TRUST">
+                    </div>
+                    <div class="form-group">
+                        <label>Display Name:</label>
+                        <input type="text" id="logoDisplay" name="display" required placeholder="TD Canada Trust">
+                    </div>
+                    <div class="form-group">
+                        <label>Category:</label>
+                        <select id="logoCategory" name="category" required>
+                            <option value="">Select...</option>
+                            <option value="bank">Bank</option>
+                            <option value="government">Government</option>
+                            <option value="insurance">Insurance</option>
+                            <option value="credit">Credit Bureau</option>
+                        </select>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">➕ Add Logo</button>
+            </form>
+        </div>
+
+        <!-- Logos List -->
+        <div class="logos-list">
+            <h4>Current Logos (<span id="logoCount">0</span>)</h4>
+            <div class="logos-table-container">
+                <table class="logos-table" id="logosTable">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Display Name</th>
+                            <th>Category</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logosTableBody">
+                        <!-- Loaded via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.settings-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.card {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.current-config {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 4px;
+}
+
+.current-config p {
+    margin: 8px 0;
+}
+
+.badge {
+    background: #4CAF50;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.provider-card {
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: block;
+}
+
+.provider-card input[type="radio"] {
+    display: none;
+}
+
+.provider-card:hover:not(:has(input:disabled)) {
+    border-color: #4CAF50;
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.provider-card.active {
+    border-color: #4CAF50;
+    background: #f1f8f4;
+}
+
+.provider-card:has(input:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.provider-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.provider-icon {
+    font-size: 24px;
+}
+
+.provider-name {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.api-status {
+    font-size: 13px;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.api-status.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.api-status.inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.model-section {
+    margin-top: 24px;
+}
+
+.models-list {
+    margin: 16px 0;
+}
+
+.model-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    cursor: pointer;
+}
+
+.model-option:hover {
+    background: #f8f9fa;
+}
+
+.model-option input[type="radio"] {
+    margin: 0;
+}
+
+.model-name {
+    font-family: monospace;
+    font-weight: 600;
+    color: #333;
+}
+
+.model-desc {
+    color: #666;
+    font-size: 14px;
+    flex: 1;
+}
+
+.badge-small {
+    background: #ff9800;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.custom-model {
+    margin-top: 24px;
+}
+
+.custom-model input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+.help-text {
+    font-size: 13px;
+    color: #666;
+    margin-top: 8px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-primary {
+    background: #4CAF50;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #45a049;
+}
+
+.btn-secondary {
+    background: #f8f9fa;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.btn-secondary:hover {
+    background: #e9ecef;
+}
+
+.status-message {
+    padding: 16px;
+    border-radius: 4px;
+    margin-top: 16px;
+    animation: slideIn 0.3s;
+}
+
+.status-message.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.status-message.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Logo Management Styles */
+.add-logo-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.add-logo-form h4 {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #333;
+}
+
+.form-group input,
+.form-group select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.logos-list {
+    margin-top: 24px;
+}
+
+.logos-list h4 {
+    margin-bottom: 16px;
+}
+
+.logos-table-container {
+    overflow-x: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.logos-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.logos-table thead {
+    background: #f8f9fa;
+}
+
+.logos-table th,
+.logos-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.logos-table th {
+    font-weight: 600;
+    color: #333;
+}
+
+.logos-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.logos-table code {
+    background: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.category-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.category-badge.bank {
+    background: #d1f2eb;
+    color: #0c5e4a;
+}
+
+.category-badge.government {
+    background: #cfe2ff;
+    color: #084298;
+}
+
+.category-badge.insurance {
+    background: #fff3cd;
+    color: #997404;
+}
+
+.category-badge.credit {
+    background: #f8d7da;
+    color: #842029;
+}
+
+.btn-delete {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.btn-delete:hover {
+    background: #c82333;
+}
+</style>
+
+<script>
+// Provider change handler
+document.querySelectorAll('input[name="provider"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        const provider = e.target.value;
+
+        // Update active state
+        document.querySelectorAll('.provider-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        e.target.closest('.provider-card').classList.add('active');
+
+        // Show corresponding models
+        document.querySelectorAll('.models-list').forEach(list => {
+            list.style.display = list.dataset.provider === provider ? 'block' : 'none';
+        });
+
+        // Auto-select first recommended model
+        const firstModel = document.querySelector(`.models-list[data-provider="${provider}"] input[type="radio"]`);
+        if (firstModel) {
+            firstModel.checked = true;
+            document.getElementById('customModel').value = firstModel.value;
+        }
+    });
+});
+
+// Model preset change handler
+document.querySelectorAll('input[name="model_preset"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        document.getElementById('customModel').value = e.target.value;
+    });
+});
+
+// Custom model input handler
+document.getElementById('customModel').addEventListener('input', (e) => {
+    // Uncheck all presets if user types custom model
+    document.querySelectorAll('input[name="model_preset"]').forEach(radio => {
+        radio.checked = false;
+    });
+});
+
+// Form submit
+document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const provider = document.querySelector('input[name="provider"]:checked').value;
+    const modelName = document.getElementById('customModel').value.trim();
+
+    if (!modelName) {
+        showMessage('Please enter a model name', 'error');
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('provider', provider);
+        formData.append('model_name', modelName);
+
+        const response = await fetch('/settings/api/update', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showMessage(`✓ ${data.message}`, 'success');
+            // Reload page after 1.5s to reflect changes
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showMessage(`✗ ${data.error}`, 'error');
+        }
+    } catch (error) {
+        showMessage(`✗ Failed to save: ${error.message}`, 'error');
+    }
+});
+
+function showMessage(text, type) {
+    const msg = document.getElementById('statusMessage');
+    msg.textContent = text;
+    msg.className = `status-message ${type}`;
+    msg.style.display = 'block';
+
+    setTimeout(() => {
+        msg.style.display = 'none';
+    }, 5000);
+}
+
+function testConnection() {
+    showMessage('🧪 Testing connection... (not implemented yet)', 'success');
+    // TODO: Add API endpoint to test AI connection
+}
+
+// Logo Management
+let logos = [];
+
+async function loadLogos() {
+    try {
+        const response = await fetch('/settings/api/logos');
+        const data = await response.json();
+        logos = data.logos || [];
+
+        renderLogosTable();
+    } catch (error) {
+        console.error('Failed to load logos:', error);
+        showMessage('✗ Failed to load logos', 'error');
+    }
+}
+
+function renderLogosTable() {
+    const tbody = document.getElementById('logosTableBody');
+    const count = document.getElementById('logoCount');
+
+    count.textContent = logos.length;
+
+    if (logos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #666;">No logos defined</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = logos.map(logo => `
+        <tr>
+            <td><code>${logo.code}</code></td>
+            <td>${logo.display}</td>
+            <td><span class="category-badge ${logo.category}">${logo.category}</span></td>
+            <td>
+                <button class="btn-delete" onclick="deleteLogo('${logo.code}')">🗑️ Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// Add logo form
+document.addEventListener('DOMContentLoaded', () => {
+    // Load logos on page load
+    loadLogos();
+
+    // Add logo form handler
+    document.getElementById('addLogoForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const code = document.getElementById('logoCode').value.trim();
+        const display = document.getElementById('logoDisplay').value.trim();
+        const category = document.getElementById('logoCategory').value;
+
+        if (!code || !display || !category) {
+            showMessage('✗ Please fill all fields', 'error');
+            return;
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('code', code);
+            formData.append('display', display);
+            formData.append('category', category);
+
+            const response = await fetch('/settings/api/logos/add', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showMessage('✓ Logo added successfully', 'success');
+                logos = data.logos;
+                renderLogosTable();
+
+                // Reset form
+                document.getElementById('addLogoForm').reset();
+            } else {
+                showMessage(`✗ ${data.error}`, 'error');
+            }
+        } catch (error) {
+            showMessage(`✗ Failed to add logo: ${error.message}`, 'error');
+        }
+    });
+});
+
+async function deleteLogo(code) {
+    if (!confirm(`Delete logo "${code}"?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/settings/api/logos/${code}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showMessage('✓ Logo deleted', 'success');
+            logos = data.logos;
+            renderLogosTable();
+        } else {
+            showMessage('✗ Failed to delete logo', 'error');
+        }
+    } catch (error) {
+        showMessage(`✗ Error: ${error.message}`, 'error');
+    }
+}
+</script>
+{% endblock %}
