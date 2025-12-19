@@ -199,6 +199,10 @@ test:
   hints: "pytest tests/test_hints_tools.py"
   mcp: "pytest tests/test_mcp_server.py"
 
+git_workflow:
+  REGLE_CRITIQUE: "TOUJOURS vérifier git branch AVANT de coder. Si sur main → créer feature/nom. JAMAIS coder sur main."
+  structure: "main (prod stable) → develop (intégration) → feature/nom (dev actif)"
+
 ---
 
 # FILE STRUCTURE
